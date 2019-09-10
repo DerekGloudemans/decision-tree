@@ -23,20 +23,22 @@ class TreeNode():
         """
         Initialize a TreeNode
         """
-        # row indices in X and Y of all examples within the node 
-        #(data is not stored explicity in the nodes)
         
-        # store all data, not just the examples within a given node
+        # store data within (or within children of) a node
         self.X = X
         self.Y = Y 
         
-        self.contents = [i for i in range(len(Y))]
         # root node has depth 0 by convention
         self.depth = 0
+        
         # contains zero or two TreeNodes
         self.children = []
+        
         #"gini" or "entropy" impurity
-        self.split_criterion = criterion
+        if criterion == 'gini':
+            self.criterion =  self.gini
+        else:
+            self.criterion = self.entropy
         
         # keep track of node's impurity (all grouped into 1 partition)
         if criterion == 'gini':
@@ -44,8 +46,6 @@ class TreeNode():
         else:
             self.entropy_val,_= self.entropy(0,np.inf)
         
- 
-
     def gini(self,j,t):
         """
         Calculate the gini impurity for a subset of tree data partitioned on 
@@ -58,8 +58,8 @@ class TreeNode():
             partition - list of lists, indicies in left and right partition 
             impurity - gini impurity
         """
-        x = self.X[self.contents,:]
-        y = self.Y[self.contents]
+        x = self.X
+        y = self.Y
         
         # get indices of left partition
         left = [i[0] for i in (np.argwhere(x[:,j] <= t))]
@@ -88,24 +88,22 @@ class TreeNode():
         
         return impurity, [left,right]
         
-    def information_gain(self,j,t):
-        """
-        Calculate the information_gain for a subset of tree data partitioned on 
-        a given feature j and split value t
-        x - np array - all feature data at the node - x = self.X[self.contents,:]
-        y - np array - all label data at the node   - y = self.Y[self.contents,:]
-        j - integer - split feature
-        t - float - split threshold (data is split <= t, > t)
-        returns:
-            partition - list of lists, indicies in left and right partition 
-            information_gain - change in entropy impurity
-        """
-        
-
-        child_entropy, [left,right] = self.entropy(j,t)
-        
-        information_gain = self.entropy_val - child_entropy
-        return information_gain, [left,right]
+#    def information_gain(self,j,t):
+#        """
+#        Calculate the information_gain for a subset of tree data partitioned on 
+#        a given feature j and split value t
+#        x - np array - all feature data at the node - x = self.X[self.contents,:]
+#        y - np array - all label data at the node   - y = self.Y[self.contents,:]
+#        j - integer - split feature
+#        t - float - split threshold (data is split <= t, > t)
+#        returns:
+#            partition - list of lists, indicies in left and right partition 
+#            information_gain - change in entropy impurity
+#        """
+#        child_entropy, [left,right] = self.entropy(j,t)
+#        
+#        information_gain = self.entropy_val - child_entropy
+#        return information_gain, [left,right]
         
     def entropy(self,j,t):
         """
@@ -120,8 +118,8 @@ class TreeNode():
             partition - list of lists, indicies in left and right partition 
             entropy - entropy impurity
         """
-        x = self.X[self.contents,:]
-        y = self.Y[self.contents]
+        x = self.X
+        y = self.Y
         
         # get indices of left partition
         left = [i[0] for i in (np.argwhere(x[:,j] <= t))]
@@ -129,15 +127,21 @@ class TreeNode():
         
         if left:
             n_left = len(left)
-            p_left = np.bincount(y[left])  /n_left
-            left_impurity = -p_left[0]*np.log(p_left[0]) + -p_left[1]*np.log(p_left[1])
+            p_left = np.bincount(y[left])  /n_left + 0.000001 # to prevent divide by 0 errors
+            if len(p_left) == 1:
+                left_impurity = 0
+            else:
+                left_impurity = -p_left[0]*np.log(p_left[0]) + -p_left[1]*np.log(p_left[1])
         else:
             left_impurity = 0
             n_left = 0
         if right:
             n_right = len(right)
-            p_right = np.bincount(y[right])  /n_right
-            right_impurity = -p_right[0]*np.log(p_right[0]) + -p_right[1]*np.log(p_right[1])
+            p_right = np.bincount(y[right])  /n_right + 0.000001 # to prevent divide by 0 errors
+            if len(p_right) == 1:
+                right_impurity = 0
+            else:
+                right_impurity = -p_right[0]*np.log(p_right[0]) + -p_right[1]*np.log(p_right[1])
         else:
             n_right = 0
             right_impurity = 0      
@@ -146,12 +150,31 @@ class TreeNode():
         entropy = left_impurity * n_left/len(y) + right_impurity * n_right/len(y)
         return entropy, [left, right]        
     
-    def compute_optimal_split():
+    def compute_optimal_split(self):
         """
         Finds optimal split for all data at node
-        
+        returns:
+            j_opt - integer -  optimal feature to split on
+            t_popt - float - optimal threshold to split on
+            val - float - impurity valyue of optimal split
         """
-        pass
+        x = self.X
+        
+        j_opt = 0
+        t_opt = -np.inf
+        best_val = np.inf 
+        # consider each feature
+        for j in range(len(x[0])): 
+            # consider each value as the threshold value
+            for i in range(len(x)):
+                
+                # get val
+                val = self.criterion(j,x[i,j])[0]
+                if val < best_val:
+                        best_val = val
+                        j_opt = j
+                        t_opt = x[i,j]
+        return j_opt,t_opt, val
         
     def fit():
         pass
@@ -166,4 +189,4 @@ class TreeNode():
 X = np.random.rand(100,10)
 Y = np.random.randint(0,2,100)    
 tree = TreeNode(X,Y,criterion  = 'gini')
-tree = TreeNode(X,Y,criterion  = 'information_gain')
+tree = TreeNode(X,Y,criterion  = 'entropy')
