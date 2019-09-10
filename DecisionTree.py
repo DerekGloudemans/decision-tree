@@ -19,7 +19,7 @@ class TreeNode():
         Y - m array of labels (m examples, 1 label per example)
     """
     
-    def __init__(self,X,Y,criterion = 'gini'):
+    def __init__(self,X,Y,depth = 0,criterion = 'gini'):
         """
         Initialize a TreeNode
         """
@@ -29,7 +29,7 @@ class TreeNode():
         self.Y = Y 
         
         # root node has depth 0 by convention
-        self.depth = 0
+        self.depth = depth
         
         # contains zero or two TreeNodes
         self.children = []
@@ -37,21 +37,26 @@ class TreeNode():
         #"gini" or "entropy" impurity
         if criterion == 'gini':
             self.criterion =  self.gini
+            self.criterion_name = "gini"
         else:
             self.criterion = self.entropy
+            self.criterion_name = "entropy"
         
         # keep track of node's impurity (all grouped into 1 partition)
         if criterion == 'gini':
             self.gini_val,_ = self.gini(0,np.inf)
         else:
             self.entropy_val,_= self.entropy(0,np.inf)
-        
+   
+    def __len__(self):
+        return len(self.Y)
+    
     def gini(self,j,t):
         """
         Calculate the gini impurity for a subset of tree data partitioned on 
         a given feature j and split value t
-        x - np array - all feature data at the node - x = self.X[self.contents,:]
-        y - np array - all label data at the node   - y = self.Y[self.contents,:]
+        x - np array - all feature data at the node
+        y - np array - all label data at the node
         j - integer - split feature
         t - float - split threshold (data is split <= t, > t)
         returns:
@@ -110,8 +115,8 @@ class TreeNode():
         Used to get initial entropy value for tree
         Calculate the entropy for a subset of tree data partitioned on 
         a given feature j and split value t
-        x - np array - all feature data at the node - x = self.X[self.contents,:]
-        y - np array - all label data at the node   - y = self.Y[self.contents,:]
+        x - np array - all feature data at the node 
+        y - np array - all label data at the node
         j - integer - split feature
         t - float - split threshold (data is split <= t, > t)
         returns:
@@ -156,7 +161,9 @@ class TreeNode():
         returns:
             j_opt - integer -  optimal feature to split on
             t_popt - float - optimal threshold to split on
-            val - float - impurity valyue of optimal split
+            val - float - impurity value of optimal split
+            left - list - indices of left partition
+            right - list - indices of right partition
         """
         x = self.X
         
@@ -174,10 +181,33 @@ class TreeNode():
                         best_val = val
                         j_opt = j
                         t_opt = x[i,j]
-        return j_opt,t_opt, val
+        val,[left,right] = self.criterion(j_opt,t_opt)
+        return j_opt,t_opt, best_val, [left,right]
         
-    def fit():
-        pass
+    def fit(self,depth_limit = 1000):
+        """
+        Recursively creates a decision tree in a breadth-first search manner 
+        by computing the optimal split of each node until
+        nodes are pure, features are identical, or depth limit is reached
+        depth_limit - int >= 0 - specifies maximum depth of tree
+        """
+        
+        # compute optimal split on data
+        if self.depth < depth_limit:
+            j,t,val,[left,right] = self.compute_optimal_split()
+        
+            # tree is still able to be further subdivided
+            if len(left) > 0 and len(right) > 0:
+                #create two new nodes on partitions of data and add to self.children
+                left_node = TreeNode(self.X[left,:],self.Y[left],depth = self.depth + 1, criterion = self.criterion_name ) 
+                right_node = TreeNode(self.X[right,:],self.Y[right],depth = self.depth + 1, criterion = self.criterion_name ) 
+                
+                left_node.fit(depth_limit)
+                right_node.fit(depth_limit)
+                
+                self.children = [left_node, right_node]
+
+                
     def predict():
         pass
     def plot():
@@ -189,4 +219,5 @@ class TreeNode():
 X = np.random.rand(100,10)
 Y = np.random.randint(0,2,100)    
 tree = TreeNode(X,Y,criterion  = 'gini')
-tree = TreeNode(X,Y,criterion  = 'entropy')
+#tree = TreeNode(X,Y,criterion  = 'entropy')
+tree.fit()
