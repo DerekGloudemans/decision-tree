@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 
 class TreeNode():
     """
-    A class for representing one node of a decision tree, and, recursively, 
+    A class for representing one node of a binary decision tree, and, recursively, 
     an entire decision tree. Contains functions for calculating impurity metrics,
     splitting nodes, pruning, and plotting. Throughout, data examples are assumed
     to be represented as numpy arrays:
         X - m x n array of examples (m examples, n features)
-        Y - m array of labels (m examples, 1 label per example)
+        Y - m x 1 array of labels (m examples, 1 label per example)
     """
     
     def __init__(self,X,Y,depth = 0,criterion = 'gini'):
@@ -27,6 +27,9 @@ class TreeNode():
         # store data within (or within children of) a node
         self.X = X
         self.Y = Y 
+        
+        # keeps track of split at node
+        self.split = (0,-np.inf)
         
         # root node has depth 0 by convention
         self.depth = depth
@@ -44,12 +47,19 @@ class TreeNode():
         
         # keep track of node's impurity (all grouped into 1 partition)
         if criterion == 'gini':
-            self.gini_val,_ = self.gini(0,np.inf)
+            self.impurity,_ = self.gini(0,np.inf)
         else:
-            self.entropy_val,_= self.entropy(0,np.inf)
+            self.impurity,_= self.entropy(0,np.inf)
    
     def __len__(self):
         return len(self.Y)
+    
+    def get_depth(self):
+        if self.children:
+            return max(self.children[0].get_depth(),
+                       self.children[1].get_depth())
+        else:
+            return self.depth
     
     def gini(self,j,t):
         """
@@ -195,7 +205,8 @@ class TreeNode():
         # compute optimal split on data
         if self.depth < depth_limit:
             j,t,val,[left,right] = self.compute_optimal_split()
-        
+            self.split = (j,t)
+            
             # tree is still able to be further subdivided
             if len(left) > 0 and len(right) > 0:
                 #create two new nodes on partitions of data and add to self.children
@@ -208,16 +219,84 @@ class TreeNode():
                 self.children = [left_node, right_node]
 
                 
-    def predict():
-        pass
+    def predict(self,X_new):
+        """
+        outputs predicted classes for each example in X_new
+        X_new - m x n array of examples (m examples, n features)
+        returns:
+            Y_pred - m x 1 array of predicted labels
+        """
+        Y_pred = np.zeros(len(X_new))
+        
+        for i in range(0,len(X_new)):
+            Y_pred[i] = self._walk(X_new[i])
+        return Y_pred
+
+    
+    def _walk(self,x):
+        """
+        gets predicted class for one example
+        x - 1 x n array for one example
+        returns:
+            y_pred - int - predicted label
+        """
+        if self.children:
+            # pass example to correct child node
+            j = self.split[0]
+            t = self.split[1]
+            if x[j] <= t:
+                return self.children[0]._walk(x)
+            else:
+                return self.children[1]._walk(x)
+        else:
+            # get most common label in node
+            return np.bincount(self.Y).argmax()
+            
+            
+            
+        
     def plot():
         pass
-    def prune():
-        pass
+     
+    def get_all_node_paths(self,current_path = []):
+        """ 
+        returns a list of lists, each list corresponding to the path through 
+        children to reach a node
+        """
+        all_node_paths = [current_path]
+        
+        if self.children:
+            path_left = current_path.copy()
+            path_left.append(0)
+            all_node_paths_left = self.children[0].get_all_node_paths(path_left)
+            
+            path_right = current_path.copy()
+            path_right.append(1)
+            all_node_paths_right = self.children[1].get_all_node_paths(path_right)
+            
+            all_node_paths = all_node_paths + all_node_paths_left + all_node_paths_right
+            
+        return all_node_paths
+    
+    def prune_single_node_greedy(self,X_val,Y_val):
+        """
+        Removes all of a node's children and descendant nodes, condensing all examples into that node
+        Node is selected greedily according to classification accuracy on validation
+        data provided.
+        """
+        
+        # get all paths to nodes
+        paths = self.get_all_node_paths()
+        
+        
+        
 
 
 X = np.random.rand(100,10)
 Y = np.random.randint(0,2,100)    
 tree = TreeNode(X,Y,criterion  = 'gini')
-#tree = TreeNode(X,Y,criterion  = 'entropy')
+tree = TreeNode(X,Y,criterion  = 'entropy')
 tree.fit()
+errors = tree.predict(X) - Y
+paths = tree.get_all_node_paths()
+
