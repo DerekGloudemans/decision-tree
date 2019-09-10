@@ -331,7 +331,7 @@ class TreeNode():
         return best,best_acc
        
     ##### functions for displaying tree
-    def plot(self,x_scale = 1500,y_scale = 512):
+    def plot(self,x_scale = 500,y_scale = 1000):
         """
         Plots each node as a rectangle containing text with splitting criteria,
         impurity, and number of examples with each label in the node. 
@@ -343,9 +343,14 @@ class TreeNode():
         depth = self.get_depth()
         paths = self.get_all_node_paths(include_leaves = True)
         
-        for path in paths:
+        # for storing relevant info on nodes
+        node_dict_list = {}
+        node_coords = np.zeros([len(paths),2])
+        
+        for p, path in enumerate(paths):
+            
             # calculate x and y offset
-            y_off = y_scale/depth *len(path)+ 25
+            y_off = y_scale/depth *len(path)+ 50
             x_off = x_scale/2
             for i in range(len(path)):
                 offset = x_scale*(2**(-i-2))
@@ -356,37 +361,81 @@ class TreeNode():
                     
             
             #get node corresponding to path
-            current_node = self
-            while path != []:
-                current_node = current_node.children[path.pop(0)]
-            self.place_node(im,current_node,x_off,y_off)
+            node = self
+            # copy path to use as key to dictionary
+            path_copy = copy.deepcopy(path)
+            # get node corresponding to path
+            while path_copy != []:
+                node = node.children[path_copy.pop(0)]
+              
+            # save stats from node
+            node_dict = {}
+            (j,t) = node.split
+            node_dict['j'] = j
+            node_dict['t'] = t
+            class0 = len(np.where(node.Y == 0)[0])
+            class1 = len(np.where(node.Y == 1)[0])
+            total = class0+class1
+            node_dict["impurity"] = node.impurity
+            node_dict['color'] = (int(class0/total*255),100,int(class1/total*255))
+            node_dict['class0'] = class0
+            node_dict['class1'] = class1
+            node_dict['idx'] = p
+            node_dict['impurity_type'] = node.criterion_name[:4]
+            node_dict_list[str(path)] = node_dict
             
+            node_coords[p,0] = x_off
+            node_coords[p,1] = y_off
+            
+        
+        # dimensions for plotting        
+        node_width = 100
+        node_height = 50
+        
+        for path in paths:
+            nd = node_dict_list[str(path)]
+            idx = nd['idx']
+            x_off = node_coords[idx,0]
+            y_off = node_coords[idx,1]
+            
+            self.place_node(im,nd,x_off,y_off,node_width,node_height)
+        
         cv2.imshow("Tree", im)
+        cv2.imwrite("temp.jpg",im)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     
-    def place_node(self,im,node, x_offset, y_offset):
+    def place_node(self,im,node_dict, x_offset, y_offset,width,height):
         """
         Places a rectangle with info corresponding to a single node
         """
-        width = 1
-        height = 10
+
         # get split criterion
-        (j,t) = node.split
-        # get impurity
-        impurity = node.impurity
-        # get class numbers
-        class0 = len(np.where(node.Y == 0)[0])
-        class1 = len(np.where(node.Y == 1)[0])
-        total = class0+class1
+        color = node_dict['color']
+    
+        # place border
+        bw = 1
+        border1 = (int(-bw + x_offset-width/2), int(-bw+y_offset-height/2))
+        border2 = (int(bw + x_offset+width/2), int(bw+y_offset+height/2))
+        im = cv2.rectangle(im,border1,border2, (50,50,50), bw*2)
         
-        color = (int(class0/total*255),100,int(class1/total*255))
-        
+        # place rectangle
         corner1 = (int(x_offset-width/2), int(y_offset-height/2))
         corner2 = (int(x_offset+width/2), int(y_offset+height/2))
-        
         im = cv2.rectangle(im,corner1,corner2, color, -1)
         
+        # plot text
+        font_scale = 1.0
+        font = cv2.FONT_HERSHEY_PLAIN
+        to1 = (int(x_offset-width/2),int(y_offset-height/2+15))
+        to2 = (int(x_offset-width/2),int(y_offset-height/2+30))
+        to3 = (int(x_offset-width/2),int(y_offset-height/2+45))
+        text1 = "x_{}<={:.3f}".format(node_dict['j'],node_dict['t'])
+        text2 = "{}: {:.3f}".format(node_dict['impurity_type'],node_dict['impurity'])
+        text3 = "cls: [{},{}]".format(node_dict['class0'],node_dict['class1'])
+        cv2.putText(im,text1,to1,font,fontScale=font_scale, color=(0,0,0), thickness=1)
+        cv2.putText(im,text2,to2,font,fontScale=font_scale, color=(0,0,0), thickness=1)
+        cv2.putText(im,text3,to3,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         
     
 #------------------------------Tester Code------------------------------------#
