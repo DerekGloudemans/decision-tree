@@ -9,6 +9,10 @@ import sklearn
 import matplotlib.pyplot as plt
 import copy
 
+
+#---------------------TreeNode Class Definition-------------------------------#
+
+
 class TreeNode():
     """
     A class for representing one node of a binary decision tree, and, recursively, 
@@ -52,14 +56,29 @@ class TreeNode():
             self.impurity,_= self.entropy(0,np.inf)
 
     def __len__(self):
+        """
+        returns - int-  length of data used to fit tree
+        """
         return len(self.Y)
     
     def get_depth(self):
+        """
+        returns - int - maximum depth of tree
+        """
         if self.children:
             return max(self.children[0].get_depth(),
                        self.children[1].get_depth())
         else:
             return self.depth
+        
+    def get_node_count(self):
+        """
+        returns -  int - number of nodes in tree, including root
+        """
+        if self.children == []:
+            return 1
+        else:
+            return self.children[0].get_node_count() + self.children[1].get_node_count()
     
     def gini(self,j,t):
         """
@@ -306,15 +325,12 @@ class TreeNode():
         best = None
         best_acc = 0
         
-        
-        
         # each path corresponds to one node in the tree
         for path in paths:
             pruned = copy.deepcopy(self)
             current_node = pruned
             while path != []:
                 current_node = current_node.children[path.pop(0)]
-                
                 
             # remove children
             current_node.children = []
@@ -327,14 +343,19 @@ class TreeNode():
         
         return best,best_acc
         
-
-
-X = np.random.rand(100,10)
-Y = np.random.randint(0,2,100)    
-tree = TreeNode(X,Y,criterion  = 'gini')
-tree = TreeNode(X,Y,criterion  = 'entropy')
-tree.fit()
-errors = tree.predict(X)
-acc = tree.predict_score(X,Y)
-paths = tree.get_all_node_paths()
-pruned_tree, pruned_acc = tree.prune_single_node_greedy(X,Y)
+    
+    
+#------------------------------Tester Code------------------------------------#
+if __name__ == "__main__":
+    X = np.random.rand(100,10)
+    X_val = np.random.rand(100,10)
+    Y = np.random.randint(0,2,100)    
+    Y_val = np.random.randint(0,2,100)
+    tree = TreeNode(X,Y,criterion  = 'gini')
+    tree = TreeNode(X,Y,criterion  = 'entropy')
+    tree.fit()
+    errors = tree.predict(X)
+    acc = tree.predict_score(X_val,Y_val)
+    paths = tree.get_all_node_paths()
+    pruned_tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
+    count = tree.get_node_count()
