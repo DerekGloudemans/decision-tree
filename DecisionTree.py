@@ -209,8 +209,8 @@ class TreeNode():
         depth_limit - int >= 0 - specifies maximum depth of tree
         """
         
-        # compute optimal split on data
-        if self.depth < depth_limit:
+        # compute optimal split on data if there is still class impurity
+        if self.depth < depth_limit and self.impurity > 0.001:
             j,t,val,[left,right] = self.compute_optimal_split()
             self.split = (j,t)
             
@@ -331,15 +331,12 @@ class TreeNode():
         return best,best_acc
        
     ##### functions for displaying tree
-    def plot(self,x_scale = 500,y_scale = 1000):
+    def plot(self,x_scale = 1000,y_scale = 2000):
         """
         Plots each node as a rectangle containing text with splitting criteria,
         impurity, and number of examples with each label in the node. 
         Color varies according to the class proportion
         """
-        # create blank image
-        im = 255 * np.ones(shape=[y_scale, x_scale, 3], dtype=np.uint8)
-        
         depth = self.get_depth()
         paths = self.get_all_node_paths(include_leaves = True)
         
@@ -351,6 +348,8 @@ class TreeNode():
             
             # calculate x and y offset
             y_off = y_scale/depth *len(path)+ 50
+#            if len(path) > 0 and path[-1] == 0:
+#                y_off = y_off + 50
             x_off = x_scale/2
             for i in range(len(path)):
                 offset = x_scale*(2**(-i-2))
@@ -377,7 +376,7 @@ class TreeNode():
             class1 = len(np.where(node.Y == 1)[0])
             total = class0+class1
             node_dict["impurity"] = node.impurity
-            node_dict['color'] = (int(class0/total*255),100,int(class1/total*255))
+            node_dict['color'] = (int(class0/total*255),150,int(class1/total*255))
             node_dict['class0'] = class0
             node_dict['class1'] = class1
             node_dict['idx'] = p
@@ -392,6 +391,15 @@ class TreeNode():
         node_width = 100
         node_height = 50
         
+        jiggle(node_coords,node_width)
+        
+        # create blank image
+        im = 255 * np.ones(shape=[y_scale, x_scale, 3], dtype=np.uint8)
+        
+        #plot lines
+        self.plot_lines(im,node_coords,node_dict_list,paths,node_height)
+        
+        # plot nodes
         for path in paths:
             nd = node_dict_list[str(path)]
             idx = nd['idx']
@@ -400,6 +408,9 @@ class TreeNode():
             
             self.place_node(im,nd,x_off,y_off,node_width,node_height)
         
+        
+        
+        # plot and save tree
         cv2.imshow("Tree", im)
         cv2.imwrite("temp.jpg",im)
         cv2.waitKey(0)
@@ -431,13 +442,58 @@ class TreeNode():
         to2 = (int(x_offset-width/2),int(y_offset-height/2+30))
         to3 = (int(x_offset-width/2),int(y_offset-height/2+45))
         text1 = "x_{}<={:.3f}".format(node_dict['j'],node_dict['t'])
+        if node_dict['t'] == -np.inf:
+            text1 = ""
         text2 = "{}: {:.3f}".format(node_dict['impurity_type'],node_dict['impurity'])
         text3 = "cls: [{},{}]".format(node_dict['class0'],node_dict['class1'])
         cv2.putText(im,text1,to1,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         cv2.putText(im,text2,to2,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         cv2.putText(im,text3,to3,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         
+    def plot_lines(self,im,node_coords, node_dict_list, paths,height = 0):
+        """
+        Plots line from each node to its parent node, if any
+        im - cv2 image of tree
+        node_coords - np array with xy offsets for each node
+        node_dict_list - dict of dicts, as defined in TreeNode.plot()
+        paths - list of lists - each list is the binary path to one node
+        node_height - int
+        node_width -int
+        """
+        for path in paths:
+            if len(path) > 0: #not the root node
+                node_dict = node_dict_list[str(path)]
+                idx = node_dict['idx']
+                point1 = (int(node_coords[idx,0]),
+                          int(node_coords[idx,1]))
+                
+                parent_node_dict = node_dict_list[str(path[:-1])]
+                par_idx = parent_node_dict['idx']
+                point2 = (int(node_coords[par_idx,0]),
+                          int(node_coords[par_idx,1]+height/2))
+                
+                cv2.line(im,point1,point2,(50,50,50),2)
+
+                
+        
+def jiggle(node_coords,node_width):
+    """
+    Moves nodes slightly horizontally so they don't overlap
+    """  
+    # find all depths (y values) 
+    depths = np.unique(node_coords[:,1])
+    # for each depth
     
+    # find all nodes at that depth
+    
+    # find center coordinate
+    
+    # expand about that coordinate
+    
+    return node_coords
+    
+    pass
+
 #------------------------------Tester Code------------------------------------#
 if __name__ == "__main__":
     X = np.random.rand(100,10)
@@ -452,7 +508,7 @@ if __name__ == "__main__":
     paths = tree.get_all_node_paths()
 #    pruned_tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
     count = tree.get_node_count()
-    tree.plot()
+    tree.plot(x_scale = 1000, y_scale = 1000)
     
     
     # get all node paths not working quite right
