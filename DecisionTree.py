@@ -1,5 +1,6 @@
 """
-Add header text here
+Derek Gloudemans
+Machine Learning Assignment 1
 """
 
 #-----------------------------------------------------------------------------#
@@ -8,7 +9,7 @@ import numpy as np
 import sklearn
 import matplotlib.pyplot as plt
 import copy
-
+import cv2
 
 #---------------------TreeNode Class Definition-------------------------------#
 
@@ -55,6 +56,7 @@ class TreeNode():
         else:
             self.impurity,_= self.entropy(0,np.inf)
 
+    ##### functions for getting info about the tree
     def __len__(self):
         """
         returns - int-  length of data used to fit tree
@@ -80,6 +82,7 @@ class TreeNode():
         else:
             return self.children[0].get_node_count() + self.children[1].get_node_count()
     
+    ##### functions for getting impurity values
     def gini(self,j,t):
         """
         Calculate the gini impurity for a subset of tree data partitioned on 
@@ -121,23 +124,7 @@ class TreeNode():
         impurity = left_ratio * n_left/len(y) + right_ratio * n_right/len(y)
         
         return impurity, [left,right]
-        
-#    def information_gain(self,j,t):
-#        """
-#        Calculate the information_gain for a subset of tree data partitioned on 
-#        a given feature j and split value t
-#        x - np array - all feature data at the node - x = self.X[self.contents,:]
-#        y - np array - all label data at the node   - y = self.Y[self.contents,:]
-#        j - integer - split feature
-#        t - float - split threshold (data is split <= t, > t)
-#        returns:
-#            partition - list of lists, indicies in left and right partition 
-#            information_gain - change in entropy impurity
-#        """
-#        child_entropy, [left,right] = self.entropy(j,t)
-#        
-#        information_gain = self.entropy_val - child_entropy
-#        return information_gain, [left,right]
+
         
     def entropy(self,j,t):
         """
@@ -184,6 +171,7 @@ class TreeNode():
         entropy = left_impurity * n_left/len(y) + right_impurity * n_right/len(y)
         return entropy, [left, right]        
     
+    ##### functions for splitting and fitting
     def compute_optimal_split(self):
         """
         Finds optimal split for all data at node
@@ -237,7 +225,7 @@ class TreeNode():
                 
                 self.children = [left_node, right_node]
 
-                
+    ##### functions for predicting and scoring            
     def predict(self,X_new):
         """
         outputs predicted classes for each example in X_new
@@ -251,7 +239,6 @@ class TreeNode():
             Y_pred[i] = self._walk(X_new[i])
         return Y_pred
 
-    
     def _walk(self,x):
         """
         gets predicted class for one example
@@ -271,8 +258,6 @@ class TreeNode():
             # get most common label in node
             return np.bincount(self.Y).argmax()
             
-            
-            
     def predict_score(self,X_new,Y_new):
         """
         """
@@ -290,26 +275,28 @@ class TreeNode():
         f1 = 0
         return acc
     
-    def plot():
-        pass
-     
-    def get_all_node_paths(self,current_path = []):
+    ##### functions for pruning 
+    def get_all_node_paths(self,current_path = [], include_leaves = False):
         """ 
         returns a list of lists, each list corresponding to the path through 
         children to reach a node that is not already a leaf node
         """
         all_node_paths = []
-        
+        if len(self.children) == 1:
+            raise Exception
         if self.children:
             path_left = current_path.copy()
             path_left.append(0)
-            all_node_paths_left = self.children[0].get_all_node_paths(path_left)
+            all_node_paths_left = self.children[0].get_all_node_paths(path_left,include_leaves = include_leaves)
             
             path_right = current_path.copy()
             path_right.append(1)
-            all_node_paths_right = self.children[1].get_all_node_paths(path_right)
+            all_node_paths_right = self.children[1].get_all_node_paths(path_right,include_leaves = include_leaves)
             
             all_node_paths = [current_path] + all_node_paths_left + all_node_paths_right
+            
+        elif include_leaves:
+            all_node_paths.append(current_path)
             
         return all_node_paths
     
@@ -342,8 +329,65 @@ class TreeNode():
                 best = copy.deepcopy(pruned)
         
         return best,best_acc
+       
+    ##### functions for displaying tree
+    def plot(self,x_scale = 1500,y_scale = 512):
+        """
+        Plots each node as a rectangle containing text with splitting criteria,
+        impurity, and number of examples with each label in the node. 
+        Color varies according to the class proportion
+        """
+        # create blank image
+        im = 255 * np.ones(shape=[y_scale, x_scale, 3], dtype=np.uint8)
         
+        depth = self.get_depth()
+        paths = self.get_all_node_paths(include_leaves = True)
+        
+        for path in paths:
+            # calculate x and y offset
+            y_off = y_scale/depth *len(path)+ 25
+            x_off = x_scale/2
+            for i in range(len(path)):
+                offset = x_scale*(2**(-i-2))
+                if path[i] == 0:
+                    x_off = x_off - offset
+                else:
+                    x_off = x_off + offset
+                    
+            
+            #get node corresponding to path
+            current_node = self
+            while path != []:
+                current_node = current_node.children[path.pop(0)]
+            self.place_node(im,current_node,x_off,y_off)
+            
+        cv2.imshow("Tree", im)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
     
+    def place_node(self,im,node, x_offset, y_offset):
+        """
+        Places a rectangle with info corresponding to a single node
+        """
+        width = 1
+        height = 10
+        # get split criterion
+        (j,t) = node.split
+        # get impurity
+        impurity = node.impurity
+        # get class numbers
+        class0 = len(np.where(node.Y == 0)[0])
+        class1 = len(np.where(node.Y == 1)[0])
+        total = class0+class1
+        
+        color = (int(class0/total*255),100,int(class1/total*255))
+        
+        corner1 = (int(x_offset-width/2), int(y_offset-height/2))
+        corner2 = (int(x_offset+width/2), int(y_offset+height/2))
+        
+        im = cv2.rectangle(im,corner1,corner2, color, -1)
+        
+        
     
 #------------------------------Tester Code------------------------------------#
 if __name__ == "__main__":
@@ -357,5 +401,9 @@ if __name__ == "__main__":
     errors = tree.predict(X)
     acc = tree.predict_score(X_val,Y_val)
     paths = tree.get_all_node_paths()
-    pruned_tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
+#    pruned_tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
     count = tree.get_node_count()
+    tree.plot()
+    
+    
+    # get all node paths not working quite right
