@@ -7,7 +7,7 @@ Add header text here
 import numpy as np
 import sklearn
 import matplotlib.pyplot as plt
-
+import copy
 
 class TreeNode():
     """
@@ -50,7 +50,7 @@ class TreeNode():
             self.impurity,_ = self.gini(0,np.inf)
         else:
             self.impurity,_= self.entropy(0,np.inf)
-   
+
     def __len__(self):
         return len(self.Y)
     
@@ -254,16 +254,32 @@ class TreeNode():
             
             
             
+    def predict_score(self,X_new,Y_new):
+        """
+        """
+        Y_pred = self.predict(X_new)
         
+        n = np.size(X_new)
+        diff = Y_pred - Y_new
+        fp = 0
+        fn = 0
+        tn = 0
+        tp = 0
+        acc = 1- (sum(np.abs(diff))/n)
+        precision = 0
+        recall = 0
+        f1 = 0
+        return acc
+    
     def plot():
         pass
      
     def get_all_node_paths(self,current_path = []):
         """ 
         returns a list of lists, each list corresponding to the path through 
-        children to reach a node
+        children to reach a node that is not already a leaf node
         """
-        all_node_paths = [current_path]
+        all_node_paths = []
         
         if self.children:
             path_left = current_path.copy()
@@ -274,7 +290,7 @@ class TreeNode():
             path_right.append(1)
             all_node_paths_right = self.children[1].get_all_node_paths(path_right)
             
-            all_node_paths = all_node_paths + all_node_paths_left + all_node_paths_right
+            all_node_paths = [current_path] + all_node_paths_left + all_node_paths_right
             
         return all_node_paths
     
@@ -287,8 +303,29 @@ class TreeNode():
         
         # get all paths to nodes
         paths = self.get_all_node_paths()
+        best = None
+        best_acc = 0
         
         
+        
+        # each path corresponds to one node in the tree
+        for path in paths:
+            pruned = copy.deepcopy(self)
+            current_node = pruned
+            while path != []:
+                current_node = current_node.children[path.pop(0)]
+                
+                
+            # remove children
+            current_node.children = []
+            
+            # make predictions and get error
+            acc = pruned.predict_score(X_val,Y_val)
+            if acc > best_acc:
+                best_acc = acc
+                best = copy.deepcopy(pruned)
+        
+        return best,best_acc
         
 
 
@@ -297,6 +334,7 @@ Y = np.random.randint(0,2,100)
 tree = TreeNode(X,Y,criterion  = 'gini')
 tree = TreeNode(X,Y,criterion  = 'entropy')
 tree.fit()
-errors = tree.predict(X) - Y
+errors = tree.predict(X)
+acc = tree.predict_score(X,Y)
 paths = tree.get_all_node_paths()
-
+pruned_tree, pruned_acc = tree.prune_single_node_greedy(X,Y)
