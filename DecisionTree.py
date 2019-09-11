@@ -10,6 +10,7 @@ import sklearn
 import matplotlib.pyplot as plt
 import copy
 import cv2
+import time
 
 #---------------------TreeNode Class Definition-------------------------------#
 
@@ -263,7 +264,7 @@ class TreeNode():
         """
         Y_pred = self.predict(X_new)
         
-        n = np.size(X_new)
+        n = len(X_new)
         diff = Y_pred - Y_new
         fp = 0
         fn = 0
@@ -331,7 +332,7 @@ class TreeNode():
         return best,best_acc
        
     ##### functions for displaying tree
-    def plot(self,x_scale = 1000,y_scale = 2000):
+    def plot(self,x_scale = 3000,y_scale = 2000,legend = ["class 0","class 1"]):
         """
         Plots each node as a rectangle containing text with splitting criteria,
         impurity, and number of examples with each label in the node. 
@@ -347,7 +348,7 @@ class TreeNode():
         for p, path in enumerate(paths):
             
             # calculate x and y offset
-            y_off = y_scale/depth *len(path)+ 50
+            y_off = y_scale/(depth+1) *len(path)+ 50
 #            if len(path) > 0 and path[-1] == 0:
 #                y_off = y_off + 50
             x_off = x_scale/2
@@ -391,13 +392,14 @@ class TreeNode():
         node_width = 100
         node_height = 50
         
-        jiggle(node_coords,node_width)
-        
+        node_coords = self._jiggle(node_coords,node_width)
+        max_x = np.max(node_coords[:,0])
+        max_y = np.max(node_coords[:,1])
         # create blank image
-        im = 255 * np.ones(shape=[y_scale, x_scale, 3], dtype=np.uint8)
+        im = 255 * np.ones(shape=[int(max_y+node_height), int(max_x + node_width), 3], dtype=np.uint8)
         
         #plot lines
-        self.plot_lines(im,node_coords,node_dict_list,paths,node_height)
+        self._plot_lines(im,node_coords,node_dict_list,paths,node_height)
         
         # plot nodes
         for path in paths:
@@ -406,9 +408,10 @@ class TreeNode():
             x_off = node_coords[idx,0]
             y_off = node_coords[idx,1]
             
-            self.place_node(im,nd,x_off,y_off,node_width,node_height)
+            self._place_node(im,nd,x_off,y_off,node_width,node_height)
         
-        
+        # plot legend
+        self._plot_legend(im,legend)
         
         # plot and save tree
         cv2.imshow("Tree", im)
@@ -416,7 +419,7 @@ class TreeNode():
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     
-    def place_node(self,im,node_dict, x_offset, y_offset,width,height):
+    def _place_node(self,im,node_dict, x_offset, y_offset,width,height):
         """
         Places a rectangle with info corresponding to a single node
         """
@@ -450,7 +453,7 @@ class TreeNode():
         cv2.putText(im,text2,to2,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         cv2.putText(im,text3,to3,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         
-    def plot_lines(self,im,node_coords, node_dict_list, paths,height = 0):
+    def _plot_lines(self,im,node_coords, node_dict_list, paths,height = 0):
         """
         Plots line from each node to its parent node, if any
         im - cv2 image of tree
@@ -465,7 +468,7 @@ class TreeNode():
                 node_dict = node_dict_list[str(path)]
                 idx = node_dict['idx']
                 point1 = (int(node_coords[idx,0]),
-                          int(node_coords[idx,1]))
+                          int(node_coords[idx,1]-height/2))
                 
                 parent_node_dict = node_dict_list[str(path[:-1])]
                 par_idx = parent_node_dict['idx']
@@ -474,25 +477,57 @@ class TreeNode():
                 
                 cv2.line(im,point1,point2,(50,50,50),2)
 
-                
+    def _plot_legend(self,im,legend,buffer = 10):
+        """
+        Plots legend on image
+        """  
+        font_scale = 1.0
+        font = cv2.FONT_HERSHEY_PLAIN
+        # label 0
+        im = cv2.rectangle(im,(buffer,buffer),(buffer+150,buffer + 30),(255,150,0),-1)
+        im = cv2.rectangle(im,(buffer-1,buffer-1),(buffer+151,buffer + 30),(50,50,50,),2)
+        cv2.putText(im,legend[0],(buffer+2,buffer+15),font,fontScale=font_scale, color=(0,0,0), thickness=1)
+        # label 1
+        im = cv2.rectangle(im,(buffer,buffer+30),(buffer+150,buffer + 60),(0,150,255),-1)
+        im = cv2.rectangle(im,(buffer-1,buffer+30),(buffer+151,buffer + 61),(50,50,50,),2)
+        cv2.putText(im,legend[1],(buffer+2,buffer+45),font,fontScale=font_scale, color=(0,0,0), thickness=1)
         
-def jiggle(node_coords,node_width):
-    """
-    Moves nodes slightly horizontally so they don't overlap
-    """  
-    # find all depths (y values) 
-    depths = np.unique(node_coords[:,1])
-    # for each depth
+    def _jiggle(self,node_coords,node_width, buffer = 10):
+        """
+        Moves nodes slightly horizontally so they don't overlap
+        node_coords - np array with xy offsets for each node
+        node_width - int
+        buffer - int - specifies spacing between nodes
+        returns:
+            node_coords - np array with non-overlapping offsets for each node
+        """  
+        # find all depths (y values) 
+        depths = np.unique(node_coords[:,1])
+        # for each depth
+        for depth in depths:
+            # find all nodes at that depth
+            idxs = np.where(node_coords[:,1] == depth)[0]
+            
     
-    # find all nodes at that depth
-    
-    # find center coordinate
-    
-    # expand about that coordinate
-    
-    return node_coords
-    
-    pass
+        
+            # find center coordinate
+            center = np.average(node_coords[idxs,0])
+        
+            # generate an array with new x_vals that don't intersect
+            new_x = np.asarray(range(0,(node_width+buffer)*len(idxs),node_width+buffer))
+            
+            #shift to be centered
+            center_new = np.average(new_x)
+            new_x = new_x + center - center_new
+            
+            # assign to node_coords values at that depth
+            node_coords[idxs,0] = new_x
+        
+        # shift so min value is on frame
+        min_x = np.min(node_coords[:,0])
+        node_coords[:,0] = node_coords[:,0] - min_x + node_width/2 + buffer
+        return node_coords
+
 
 #------------------------------Tester Code------------------------------------#
 if __name__ == "__main__":
@@ -506,9 +541,11 @@ if __name__ == "__main__":
     errors = tree.predict(X)
     acc = tree.predict_score(X_val,Y_val)
     paths = tree.get_all_node_paths()
-#    pruned_tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
-    count = tree.get_node_count()
-    tree.plot(x_scale = 1000, y_scale = 1000)
+    while tree.get_node_count() > 1:
+        tree.plot(x_scale = 1000, y_scale = 1000,legend = ["Non-Cancerous","Cancerous"])
+        tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
+        print(pruned_acc)
+        time.sleep(0.1)
     
     
     # get all node paths not working quite right
