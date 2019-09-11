@@ -65,7 +65,7 @@ class TreeNode():
     
     def get_depth(self):
         """
-        returns - int - maximum depth of tree
+        returns - int - maximum depth of TreeNode in Tree
         """
         if self.children:
             return max(self.children[0].get_depth(),
@@ -73,14 +73,20 @@ class TreeNode():
         else:
             return self.depth
         
-    def get_node_count(self):
+    def get_node_count(self,include_leaves = True):
         """
-        returns -  int - number of nodes in tree, including root
+        include_leaves - bool - specifies whether leaf nodes are included in count
+        returns:
+            int - number non-leaf nodes in tree, including root
+            int - number of leaf nodes in tree    
         """
         if self.children == []:
-            return 1
+            if include_leaves:
+                return 1
+            else:
+                return 0
         else:
-            return self.children[0].get_node_count() + self.children[1].get_node_count()
+            return 1 + self.children[0].get_node_count(include_leaves = include_leaves) + self.children[1].get_node_count(include_leaves = include_leaves)
     
     ##### functions for getting impurity values
     def gini(self,j,t):
@@ -192,7 +198,7 @@ class TreeNode():
             # consider each value as the threshold value
             for i in range(len(x)):
                 
-                # get val
+                # get impurity val
                 val = self.criterion(j,x[i,j])[0]
                 if val < best_val:
                         best_val = val
@@ -220,6 +226,7 @@ class TreeNode():
                 left_node = TreeNode(self.X[left,:],self.Y[left],depth = self.depth + 1, criterion = self.criterion_name ) 
                 right_node = TreeNode(self.X[right,:],self.Y[right],depth = self.depth + 1, criterion = self.criterion_name ) 
                 
+                # recursively fit each child node
                 left_node.fit(depth_limit)
                 right_node.fit(depth_limit)
                 
@@ -258,22 +265,33 @@ class TreeNode():
             # get most common label in node
             return np.bincount(self.Y).argmax()
             
-    def predict_score(self,X_new,Y_new):
+    def predict_score(self,X,Y):
         """
         """
-        Y_pred = self.predict(X_new)
-        
-        n = len(X_new)
-        diff = Y_pred - Y_new
-        fp = 0
-        fn = 0
-        tn = 0
-        tp = 0
+        eps = 0.00000001
+        Y_pred = self.predict(X)
+        diff = Y_pred - Y
+        n = len(Y)
+        fp =  len(np.where(diff == 1)[0])# Y_pred = 1, Y_ = 0
+        fn = len(np.where(diff == -1)[0]) # Y_pred = 0, Y = 1
+        tn = len(np.where(Y == 0)[0]) - fp 
+        tp = len(np.where(Y == 1)[0]) - fn
         acc = 1- (sum(np.abs(diff))/n)
-        precision = 0
-        recall = 0
-        f1 = 0
-        return acc
+        precision = tp/ (tp + fp +eps) # correct predictions over all predictions
+        recall = tp/(tp + fn +eps) # predicted 1s over correct 1s
+        f1 = (2*precision*recall)/(precision + recall +eps)
+        result_dict ={
+                "fp":fp,
+                "fn":fn,
+                "tn":tn,
+                "tp":tp,
+                "acc":acc,
+                "precision":precision,
+                "recall":recall,
+                "f1":f1
+                }
+                
+        return acc,result_dict
     
     ##### functions for pruning 
     def get_all_node_paths(self,current_path = [], include_leaves = False):
@@ -282,8 +300,12 @@ class TreeNode():
         children to reach a node that is not already a leaf node
         """
         all_node_paths = []
+        
+        # check for improper pruning of only one child node
         if len(self.children) == 1:
             raise Exception
+        
+        # if node has children, recursively call get_all_node _paths
         if self.children:
             path_left = current_path.copy()
             path_left.append(0)
@@ -294,7 +316,8 @@ class TreeNode():
             all_node_paths_right = self.children[1].get_all_node_paths(path_right,include_leaves = include_leaves)
             
             all_node_paths = [current_path] + all_node_paths_left + all_node_paths_right
-            
+       
+        # otherwise, return current path (only if include_leaves, since this is a leaf node)
         elif include_leaves:
             all_node_paths.append(current_path)
             
@@ -323,7 +346,7 @@ class TreeNode():
             current_node.children = []
             
             # make predictions and get error
-            acc = pruned.predict_score(X_val,Y_val)
+            acc,_ = pruned.predict_score(X_val,Y_val)
             if acc > best_acc:
                 best_acc = acc
                 best = copy.deepcopy(pruned)
@@ -331,7 +354,7 @@ class TreeNode():
         return best,best_acc
        
     ##### functions for displaying tree
-    def plot(self,x_scale = 3000,y_scale = 2000,legend = ["class 0","class 1"]):
+    def plot(self,x_scale = 3000,y_scale = 1000,legend = ["class 0","class 1"]):
         """
         Plots each node as a rectangle containing text with splitting criteria,
         impurity, and number of examples with each label in the node. 
@@ -357,8 +380,7 @@ class TreeNode():
                     x_off = x_off - offset
                 else:
                     x_off = x_off + offset
-                    
-            
+                
             #get node corresponding to path
             node = self
             # copy path to use as key to dictionary
@@ -383,17 +405,20 @@ class TreeNode():
             node_dict['impurity_type'] = node.criterion_name[:4]
             node_dict_list[str(path)] = node_dict
             
+            # store node_offsets
             node_coords[p,0] = x_off
             node_coords[p,1] = y_off
             
         
         # dimensions for plotting        
-        node_width = 100
+        node_width = 150
         node_height = 50
         
+        # get rid of node overlap
         node_coords = self._jiggle(node_coords,node_width)
         max_x = np.max(node_coords[:,0])
         max_y = np.max(node_coords[:,1])
+        
         # create blank image
         im = 255 * np.ones(shape=[int(max_y+node_height), int(max_x + node_width), 3], dtype=np.uint8)
         
@@ -412,7 +437,7 @@ class TreeNode():
         # plot legend
         self._plot_legend(im,legend)
         
-        # plot and save tree
+        # show and save tree
         cv2.imshow("Tree", im)
         cv2.imwrite("temp.jpg",im)
         cv2.waitKey(0)
@@ -422,7 +447,6 @@ class TreeNode():
         """
         Places a rectangle with info corresponding to a single node
         """
-
         # get split criterion
         color = node_dict['color']
     
@@ -535,16 +559,16 @@ if __name__ == "__main__":
     Y = np.random.randint(0,2,100)    
     Y_val = np.random.randint(0,2,100)
     tree = TreeNode(X,Y,criterion  = 'gini')
-    tree = TreeNode(X,Y,criterion  = 'entropy')
+#    qtree = TreeNode(X,Y,criterion  = 'entropy')
     tree.fit()
     errors = tree.predict(X)
-    acc = tree.predict_score(X_val,Y_val)
+    acc,_ = tree.predict_score(X_val,Y_val)
     paths = tree.get_all_node_paths()
-    while tree.get_node_count() > 1:
+    while True:
         tree.plot(x_scale = 1000, y_scale = 1000,legend = ["Non-Cancerous","Cancerous"])
         tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
         print(pruned_acc)
         time.sleep(0.1)
+        break
     
     
-    # get all node paths not working quite right
