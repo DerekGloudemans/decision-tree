@@ -8,7 +8,7 @@ Machine Learning Assignment 1
 import numpy as np
 import copy
 import csv
-from DecisionTree import TreeNode
+from TreeNode import TreeNode
 
 
 #-----------------------Function Definitions----------------------------------#
