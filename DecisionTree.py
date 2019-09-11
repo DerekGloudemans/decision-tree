@@ -1,13 +1,12 @@
 """
 Derek Gloudemans
 Machine Learning Assignment 1
+DecisionTree.py - implements TreeNode class
 """
 
 #-----------------------------------------------------------------------------#
 #--------------------------Import Packages------------------------------------#
 import numpy as np
-import sklearn
-import matplotlib.pyplot as plt
 import copy
 import cv2
 import time
