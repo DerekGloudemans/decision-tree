@@ -178,7 +178,7 @@ class TreeNode():
         return entropy, [left, right]        
     
     ##### functions for splitting and fitting
-    def compute_optimal_split(self):
+    def compute_optimal_split(self,show = False):
         """
         Finds optimal split for all data at node
         returns:
@@ -199,7 +199,9 @@ class TreeNode():
             for i in range(len(x)):
                 
                 # get impurity val
-                val = self.criterion(j,x[i,j])[0]
+                val,[l,r] = self.criterion(j,x[i,j])
+                if show:
+                    print("i:{} j:{} t:{}  val:{} l:{} r:{}".format(i,j,x[i,j],val,l,r))
                 if val < best_val:
                         best_val = val
                         j_opt = j
@@ -216,7 +218,7 @@ class TreeNode():
         """
         
         # compute optimal split on data if there is still class impurity
-        if self.depth < depth_limit and self.impurity > 0.001:
+        if self.depth < depth_limit and self.impurity > 0.01:
             j,t,val,[left,right] = self.compute_optimal_split()
             self.split = (j,t)
             
@@ -276,6 +278,7 @@ class TreeNode():
         fn = len(np.where(diff == -1)[0]) # Y_pred = 0, Y = 1
         tn = len(np.where(Y == 0)[0]) - fp 
         tp = len(np.where(Y == 1)[0]) - fn
+        assert fp+fn+tn+tp == n, "Error!!"
         acc = 1- (sum(np.abs(diff))/n)
         precision = tp/ (tp + fp +eps) # correct predictions over all predictions
         recall = tp/(tp + fn +eps) # predicted 1s over correct 1s
@@ -288,7 +291,9 @@ class TreeNode():
                 "acc":acc,
                 "precision":precision,
                 "recall":recall,
-                "f1":f1
+                "f1":f1,
+                "tpr": tp/(tp + fn +eps),
+                "fpr": fp/(fp + tn +eps),
                 }
                 
         return acc,result_dict
@@ -354,7 +359,7 @@ class TreeNode():
         return best,best_acc
        
     ##### functions for displaying tree
-    def plot(self,x_scale = 3000,y_scale = 1000,legend = ["class 0","class 1"]):
+    def plot(self,x_scale = 3000,y_scale = 900,legend = ["class 0","class 1"],feature_labels = None):
         """
         Plots each node as a rectangle containing text with splitting criteria,
         impurity, and number of examples with each label in the node. 
@@ -432,7 +437,7 @@ class TreeNode():
             x_off = node_coords[idx,0]
             y_off = node_coords[idx,1]
             
-            self._place_node(im,nd,x_off,y_off,node_width,node_height)
+            self._place_node(im,nd,x_off,y_off,node_width,node_height,feature_labels)
         
         # plot legend
         self._plot_legend(im,legend)
@@ -443,7 +448,7 @@ class TreeNode():
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     
-    def _place_node(self,im,node_dict, x_offset, y_offset,width,height):
+    def _place_node(self,im,node_dict, x_offset, y_offset,width,height,feature_labels = None):
         """
         Places a rectangle with info corresponding to a single node
         """
@@ -467,12 +472,17 @@ class TreeNode():
         to1 = (int(x_offset-width/2),int(y_offset-height/2+15))
         to2 = (int(x_offset-width/2),int(y_offset-height/2+30))
         to3 = (int(x_offset-width/2),int(y_offset-height/2+45))
-        text1 = "x_{}<={:.3f}".format(node_dict['j'],node_dict['t'])
+        
+        if feature_labels:
+            text1 = "{}<={:.3f}".format(feature_labels[node_dict['j']],node_dict['t'])
+        else:
+            text1 = "x_{}<={:.3f}".format(node_dict['j'],node_dict['t'])
         if node_dict['t'] == -np.inf:
             text1 = ""
         text2 = "{}: {:.3f}".format(node_dict['impurity_type'],node_dict['impurity'])
         text3 = "cls: [{},{}]".format(node_dict['class0'],node_dict['class1'])
-        cv2.putText(im,text1,to1,font,fontScale=font_scale, color=(0,0,0), thickness=1)
+        
+        cv2.putText(im,text1,to1,font,fontScale=font_scale/2, color=(0,0,0), thickness=1)
         cv2.putText(im,text2,to2,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         cv2.putText(im,text3,to3,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         
@@ -559,12 +569,13 @@ if __name__ == "__main__":
     Y = np.random.randint(0,2,100)    
     Y_val = np.random.randint(0,2,100)
     tree = TreeNode(X,Y,criterion  = 'gini')
-#    qtree = TreeNode(X,Y,criterion  = 'entropy')
+#    tree = TreeNode(X,Y,criterion  = 'entropy')
     tree.fit()
     errors = tree.predict(X)
-    acc,_ = tree.predict_score(X_val,Y_val)
+    acc,_ = tree.predict_score(X,Y)
     paths = tree.get_all_node_paths()
-    while True:
+    tree.plot()
+    while False:
         tree.plot(x_scale = 1000, y_scale = 1000,legend = ["Non-Cancerous","Cancerous"])
         tree, pruned_acc = tree.prune_single_node_greedy(X_val,Y_val)
         print(pruned_acc)
