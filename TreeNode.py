@@ -440,7 +440,7 @@ class TreeNode():
             self._place_node(im,nd,x_off,y_off,node_width,node_height,feature_labels)
         
         # plot legend
-        self._plot_legend(im,legend)
+        #self._plot_legend(im,legend)
         
         # show and save tree
         cv2.imshow("Tree", im)
@@ -482,7 +482,7 @@ class TreeNode():
         text2 = "{}: {:.3f}".format(node_dict['impurity_type'],node_dict['impurity'])
         text3 = "cls: [{},{}]".format(node_dict['class0'],node_dict['class1'])
         
-        cv2.putText(im,text1,to1,font,fontScale=font_scale/2, color=(0,0,0), thickness=1)
+        cv2.putText(im,text1,to1,font,fontScale=font_scale/1.3, color=(0,0,0), thickness=1)
         cv2.putText(im,text2,to2,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         cv2.putText(im,text3,to3,font,fontScale=font_scale, color=(0,0,0), thickness=1)
         

@@ -1,6 +1,10 @@
 """
 Derek Gloudemans
 Machine Learning Assignment 1
+
+All relevant contents of this file were placed into cancer_dataset_evaluation.ipynb
+for easier reading
+
 """
 
 #-----------------------------------------------------------------------------#
@@ -159,11 +163,11 @@ print("Results obtained for test dataset.")
 non_leaf_count = tree.get_node_count(include_leaves = False)
 leaf_count = tree.get_node_count(include_leaves = True) -non_leaf_count
 
-feature_labels = ["avg. radius","avg texture","avg permtr","avg area","avg smthness","avg cmpctness","avg concvty","avg num cncv prtns", "avg sym","avg frct dim",
- "radius stdev","texture stdev","permtr stdev","area stdev","smthness stdev","cmpctness stdev","concvty stdev","num cncv prtns stdev", "sym stdev","frct dim stdev",
- "max radius","max texture","max permtr","max area","max smthness","max cmpctness","max concvty","max num cncv prtns", "max sym","max frct dim"]
+feature_labels = ["avg. radius","avg texture","avg permtr","avg area","avg smthness","avg cmpctness","avg concvty","avg # conc", "avg sym","avg frct dim",
+ "radius stdev","texture stdev","permtr stdev","area stdev","smthness stdev","cmpctness stdev","concvty stdev","num # conc stdev", "sym stdev","frct dim stdev",
+ "max radius","max texture","max permtr","max area","max smthness","max cmpctness","max concvty","max # conc", "max sym","max frct dim"]
 #plot tree
-tree.plot(legend = ["Benign", "Malignant"],feature_labels = feature_labels)
+#tree.plot(legend = ["Benign", "Malignant"],feature_labels = feature_labels)
 
 # summarize results in table
 print("------------------Results for Dataset 1 -----------------")
@@ -177,9 +181,9 @@ print("---------------------------------------------------------")
 # prune trees iteratively - at each step, report classification accuracy and F1 score, on training, validation and testing sets
 results_list = []
 num_nodes = tree.get_node_count()
-while num_nodes > 0:
+while  num_nodes > 0:
     
-    tree.plot(legend = ["Benign", "Malignant"])
+    tree.plot(legend = ["Benign", "Malignant"],feature_labels=feature_labels)
     
     # get results for all data
     _,train_result = tree.predict_score(X_train,Y_train)
