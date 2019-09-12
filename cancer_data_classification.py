@@ -173,7 +173,7 @@ feature_labels = ["avg. radius","avg texture","avg permtr","avg area","avg smthn
 print("------------------Results for Dataset 1 -----------------")
 print("|  Metric       |  Training Dataset  |  Testing Dataset  |")
 print("|  Total Nodes  |                   {}                   |".format(leaf_count+non_leaf_count))
-print("|  Leaf Nodes   |                   {}                   |".format(non_leaf_count))
+print("|  Leaf Nodes   |                   {}                   |".format(leaf_count))
 print("|  Accuracy     |  {:.03f}             |  {:.03f}            |".format(train_result['acc'],test_result['acc']))
 print("---------------------------------------------------------")
 # report training and testing accuracy, number of nodes, number of leaf nodes for each dataset
